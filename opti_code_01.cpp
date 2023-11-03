@@ -12,7 +12,15 @@ int adjacent_pairs;
 vector<vector<int>>adj; // contains the adjacency of all the rooms
 map<pair<int,int>,int>adj_type;
 
-vector<int>lb_len,ub_len,lb_width,ub_width;
+vector<vector<double>> edgesX;
+vector<vector<double>> edgesY;
+
+const double  small_positive = 0.01;
+const double NEG_INF = -1e8;
+const double POS_INF = 1e8;
+
+
+vector<double>lb_len,ub_len,lb_width,ub_width;
 
 /*
 LEFT WALL - 1
@@ -85,7 +93,7 @@ void tblr_rooms(){
 void input_constraints(){
     // for each room, we are needing the heights and widths range
     cout<<"for each room, we are needing the length and widths range\n";
-    int low_len, up_len, low_width,up_width;
+    double low_len, up_len, low_width,up_width;
 
     lb_len.push_back(-1),ub_len.push_back(-1),lb_width.push_back(-1),ub_width.push_back(-1);
 
@@ -124,8 +132,106 @@ void input(){
 }
 
 
-void construct_constraintgraph(){
 
+void construct_constraintgraphX(){
+    // each node is to be split into 4 nodes - i1,i2,i3,i4. 
+    // gx would have nodes i1 and i3 - the left and the right ones.
+
+    // you will have to consider those have adjacencies in the y direction - type 3 and type 4. make the corresponding distances positive
+
+    
+
+    // first add the edges for the widths of each single room - the user constraints
+    // the ith room would have 2*i-1 and 2i as the left and right wall respectively
+    for(int i=1;i<=rooms;i++){ 
+        int left_wall = 2*i-1,right_wall = 2*i;
+        edgesX[left_wall][right_wall] = lb_width[i];
+        edgesX[right_wall][left_wall] = -1*ub_width[i];
+    }
+
+    // now add the edges for adjacencies
+    for(int i=1;i<=rooms;i++){
+        int left_walli = 2*i-1,right_walli = 2*i;
+        int top_walli = 2*i-1,bottom_walli=2*i;
+
+        for(int x:adj[i]){
+            int left_wallx = 2*x-1,right_wallx = 2*x;
+            int top_wallx = 2*x-1,bottom_wallx=2*x;
+
+            int type = adj_type[{i,x}];
+            if(type == 1){
+                // i is to the right
+                edgesX[right_wallx][left_walli]=0;
+                edgesX[left_walli][right_wallx]=0;
+                // need to add the constraints for the top walls 
+
+                edgesY[top_walli][bottom_wallx]=NEG_INF;
+                edgesY[bottom_wallx][top_walli] = small_positive;
+
+                edgesY[top_wallx][bottom_walli]=NEG_INF;
+                edgesY[bottom_walli][top_wallx]=small_positive;
+            }
+            else if(type == 2){
+                // i is to the left
+                edgesX[left_wallx][right_walli]=0;
+                edgesX[right_walli][left_wallx]=0;
+
+                // constraints for top walls
+                edgesY[top_walli][bottom_wallx]=NEG_INF;
+                edgesY[bottom_wallx][top_walli] = small_positive;
+
+                edgesY[top_wallx][bottom_walli]=NEG_INF;
+                edgesY[bottom_walli][top_wallx]=small_positive;
+            }
+        }
+    }
+
+    
+}   
+
+void construct_constraintgraphY(){
+
+    // add the edges for the same room
+    for(int i=1;i<=rooms;i++){
+        int top_walli = 2*i-1,bottom_walli=2*i;
+        edgesY[bottom_walli][top_walli] = lb_len[i];
+        edgesY[top_walli][bottom_walli] = -1*ub_len[i];
+    }
+
+    for(int i=1;i<=rooms;i++){
+        int left_walli = 2*i-1,right_walli = 2*i;
+        int top_walli = 2*i-1,bottom_walli=2*i;
+        for(int x: adj[i]){
+            int left_wallx = 2*x-1,right_wallx = 2*x;
+            int top_wallx = 2*x-1,bottom_wallx=2*x;
+
+            int type = adj_type[{i,x}];
+            if(type ==3){
+                // i is below x
+                edgesY[top_walli][bottom_wallx]=0;
+                edgesY[bottom_wallx][top_walli]=0;
+
+                // constraints for the side walls
+                edgesX[left_wallx][right_walli]=small_positive;
+                edgesX[right_walli][left_wallx] = NEG_INF;
+
+                edgesX[left_walli][right_wallx] = small_positive;
+                edgesX[right_wallx][left_walli] = NEG_INF;
+            }
+            else if(type == 4){
+                // x is below i
+                edgesY[top_wallx][bottom_walli]=0;
+                edgesY[bottom_walli][top_wallx]=0;
+
+                // constraints for the side walls
+                edgesX[left_wallx][right_walli]=small_positive;
+                edgesX[right_walli][left_wallx] = NEG_INF;
+
+                edgesX[left_walli][right_wallx] = small_positive;
+                edgesX[right_wallx][left_walli] = NEG_INF;
+            }
+        }
+    }
 }
 
 void detect_cycles(){
@@ -148,7 +254,13 @@ int main(){
     
     input(); // take all the necessary inputs - 
 
-    construct_constraintgraph(); // using the inputs
+    edgesX.clear();
+    edgesX.resize(2*(rooms+1),vector<double>(2*(rooms+1),POS_INF)); // 2D array for edge weights
+
+    edgesY.clear();
+    edgesY.resize(2*(rooms + 1),vector<double>(2*(rooms + 1),POS_INF));
+
+    construct_constraintgraphX(); // using the inputs
 
     // detect_cycles();
 
