@@ -14,7 +14,8 @@ map<pair<int,int>,int>adj_type;
 
 vector<vector<double>> edgesX;
 vector<vector<double>> edgesY;
-
+vector<pair<int,int>>edges_setx;
+vector<pair<int,int>>edges_sety;
 const double  small_positive = 0.01;
 const double NEG_INF = -1e8;
 const double POS_INF = 1e8;
@@ -22,6 +23,10 @@ const double POS_INF = 1e8;
 
 vector<double>lb_len,ub_len,lb_width,ub_width;
 
+vector<double> x_longest_path,y_longest_path;
+
+vector<double> placementx;
+vector<double> placementy;
 /*
 LEFT WALL - 1
 TOP WALL - 2
@@ -62,6 +67,7 @@ void input_adjacency(){
         adj[ri].push_back(rj);
         adj[rj].push_back(ri);
 
+
     }
 }
 
@@ -76,8 +82,11 @@ void tblr_rooms(){
         int a;
         cin>>a;
         sx_adj.push_back(a);
-    }
+        edges_setx.push_back({0,2*a-1});
+        edgesX[0][2*a-1]=0;
 
+    }
+    
     cout<<"Please enter the number of rooms that are to be connected to sy: \n";
     cin>>num_sy;
 
@@ -86,6 +95,8 @@ void tblr_rooms(){
         int a;
         cin>>a;
         sy_adj.push_back(a);
+        edges_sety.push_back({0,2*a});
+        edgesY[0][2*a]=0;
     }
     
 }
@@ -122,6 +133,11 @@ void input_constraints(){
 void input(){
     cout<<"Please enter the number of rooms: ";
     cin>>rooms;
+    edgesX.clear();
+    edgesX.resize(2*(rooms+1),vector<double>(2*(rooms+1),POS_INF)); // 2D array for edge weights
+
+    edgesY.clear();
+    edgesY.resize(2*(rooms + 1),vector<double>(2*(rooms + 1),POS_INF));
     tblr_rooms();
 
     adj.clear();
@@ -147,6 +163,8 @@ void construct_constraintgraphX(){
         int left_wall = 2*i-1,right_wall = 2*i;
         edgesX[left_wall][right_wall] = lb_width[i];
         edgesX[right_wall][left_wall] = -1*ub_width[i];
+        edges_setx.push_back({left_wall,right_wall});
+        edges_setx.push_back({right_wall,left_wall});
     }
 
     // now add the edges for adjacencies
@@ -163,25 +181,36 @@ void construct_constraintgraphX(){
                 // i is to the right
                 edgesX[right_wallx][left_walli]=0;
                 edgesX[left_walli][right_wallx]=0;
+                edges_setx.push_back({right_wallx,left_walli});
+                edges_setx.push_back({left_walli,right_wallx});
                 // need to add the constraints for the top walls 
 
                 edgesY[top_walli][bottom_wallx]=NEG_INF;
                 edgesY[bottom_wallx][top_walli] = small_positive;
+                edges_sety.push_back({top_walli,bottom_wallx});
+                edges_sety.push_back({bottom_wallx,top_walli});
 
                 edgesY[top_wallx][bottom_walli]=NEG_INF;
                 edgesY[bottom_walli][top_wallx]=small_positive;
+                edges_sety.push_back({top_wallx,bottom_walli});
+                edges_sety.push_back({bottom_walli,top_wallx});
             }
             else if(type == 2){
                 // i is to the left
                 edgesX[left_wallx][right_walli]=0;
                 edgesX[right_walli][left_wallx]=0;
-
+                edges_setx.push_back({left_wallx,right_walli});
+                edges_setx.push_back({right_walli,left_wallx});
                 // constraints for top walls
                 edgesY[top_walli][bottom_wallx]=NEG_INF;
                 edgesY[bottom_wallx][top_walli] = small_positive;
+                edges_sety.push_back({top_walli,bottom_wallx});
+                edges_sety.push_back({bottom_wallx,top_walli});
 
                 edgesY[top_wallx][bottom_walli]=NEG_INF;
                 edgesY[bottom_walli][top_wallx]=small_positive;
+                edges_sety.push_back({top_wallx,bottom_walli});
+                edges_sety.push_back({bottom_walli,top_wallx});
             }
         }
     }
@@ -196,6 +225,8 @@ void construct_constraintgraphY(){
         int top_walli = 2*i-1,bottom_walli=2*i;
         edgesY[bottom_walli][top_walli] = lb_len[i];
         edgesY[top_walli][bottom_walli] = -1*ub_len[i];
+        edges_sety.push_back({bottom_walli,top_walli});
+        edges_sety.push_back({top_walli,bottom_walli});
     }
 
     for(int i=1;i<=rooms;i++){
@@ -210,25 +241,35 @@ void construct_constraintgraphY(){
                 // i is below x
                 edgesY[top_walli][bottom_wallx]=0;
                 edgesY[bottom_wallx][top_walli]=0;
-
+                edges_sety.push_back({top_walli,bottom_wallx});
+                edges_sety.push_back({bottom_wallx,top_walli});
                 // constraints for the side walls
                 edgesX[left_wallx][right_walli]=small_positive;
                 edgesX[right_walli][left_wallx] = NEG_INF;
+                edges_setx.push_back({left_wallx,right_walli});
+                edges_setx.push_back({right_walli,left_wallx});
 
                 edgesX[left_walli][right_wallx] = small_positive;
                 edgesX[right_wallx][left_walli] = NEG_INF;
+                edges_setx.push_back({left_walli,right_wallx});
+                edges_setx.push_back({right_walli,left_wallx});
             }
             else if(type == 4){
                 // x is below i
                 edgesY[top_wallx][bottom_walli]=0;
                 edgesY[bottom_walli][top_wallx]=0;
-
+                edges_sety.push_back({top_wallx,bottom_walli});
+                edges_sety.push_back({bottom_walli,top_wallx});
                 // constraints for the side walls
                 edgesX[left_wallx][right_walli]=small_positive;
                 edgesX[right_walli][left_wallx] = NEG_INF;
+                edges_setx.push_back({left_wallx,right_walli});
+                edges_setx.push_back({right_walli,left_wallx});
 
                 edgesX[left_walli][right_wallx] = small_positive;
                 edgesX[right_wallx][left_walli] = NEG_INF;
+                edges_setx.push_back({left_walli,right_wallx});
+                edges_setx.push_back({right_wallx,left_walli});
             }
         }
     }
@@ -246,23 +287,150 @@ void detect_cycles(){
 
 }
 
-void longest_path(){
+bool pos_longest_path(vector<double> & placement, vector<pair<int,int>> & edge_set,vector<vector<double>> &edge_weights){
+stack<int> s;
+s.push(0);
+vector<bool> edge_visited(edge_set.size(),false);
+vector<bool> is_pushed(2*rooms+1,false);
+is_pushed[0]=true;
+while(!s.empty()){
+    int v=s.top();
+    cout << v << endl;
+    s.pop();
+    for(int i=0;i<edge_set.size();i++){
+    int a=edge_set[i].first;
+    int b=edge_set[i].second;
+    if(a!=v){
+        continue; 
+    }
+    edge_visited[i]=true;
+    if(edge_weights[a][b]>=0){
+        cout << a << " " << b << " " << placement[b] << " " << placement[a]<< endl;
+        if(placement[b]-placement[a]<edge_weights[a][b]){
+            placement[b]=placement[a]+edge_weights[a][b];
+            cout << a << " " << b << " " << placement[b] << " " << placement[a]<< endl;
+        }
 
+    }
+    for(int j=1;j<=2*rooms;j++){
+        bool all_vis=true;
+        for(int i=0;i<edge_set.size();i++){
+            int a=edge_set[i].first;
+            int b=edge_set[i].second;
+            if(b==j&&edge_weights[a][b]>=0&&!edge_visited[i]){
+                if(edge_weights[a][b]==0){
+                    int x= (a+1)/2;
+                    int y=(b+1)/2;
+                    if(adj_type[{x,y}]==2||adj_type[{x,y}]==3){
+                        all_vis=false;
+                    }
+                }
+                else{
+                    all_vis=false;
+                }
+            }
+        }
+        if(all_vis&& !is_pushed[j]){
+
+            s.push(j);
+            cout << " Pushed "<<j << endl;
+            is_pushed[j]=true;
+        }
+    }
 }
 
+}
+for(int i=0;i<is_pushed.size();i++){
+    if(!is_pushed[i]){
+        return false;
+        cout << " Returned false in [pos_longest_path]"<<endl;
+    }
+}
+// cout << " Returned true in [pos_longest_path]"<<endl;
+return true;
+} 
+
+bool longest_path(vector<double> & placement, vector<pair<int,int>> & edge_set,vector<vector<double>> &edge_weights){
+int ctr=1;
+bool done = false;
+int total_neg=0;
+for(int i=0;i<edge_set.size();i++){
+    int a=edge_set[i].first;
+    int b=edge_set[i].second;
+    if(edge_weights[a][b]<0){
+        total_neg++;
+    }
+}
+cout << " Total_neg = " << total_neg <<endl;
+do {
+if(!pos_longest_path(placement,edge_set,edge_weights))return false;
+ctr++;
+done=true;
+for(int i=0;i<edge_set.size();i++){
+    int a=edge_set[i].first;
+    int b=edge_set[i].second;
+    if(edge_weights[a][b]<0){
+        if(placement[b]-placement[a]<edge_weights[a][b]){
+            placement[b]=placement[a]+edge_weights[a][b];
+            done=false;
+        }
+    }
+
+}
+}while(ctr<=total_neg&&!done);
+if(!done)
+cout << " Returned false in [longest_path]"<<endl;
+return done;
+
+}
+void printPlacements(){
+    cout << "Placements in X dir"<<endl;
+    for(int i=0;i<placementx.size();i++){
+        cout << i << " " << placementx[i]<<endl;
+    }
+    cout << "Placements in Y dir"<<endl;
+    for(int i=0;i<placementy.size();i++){
+        cout << i << " " << placementy[i]<<endl;
+    }
+}
+void Compute_Placement(){
+    placementx.push_back(0);//sx
+    placementy.push_back(0);//sy
+    for(int i=0;i<2*rooms;i++){
+        placementx.push_back(-1);
+        placementy.push_back(-1);
+    }
+    if(!longest_path(placementx,edges_setx,edgesX)){
+       cout << "Not able to assign placement in horizontal constraint graph"<<endl;
+    }
+    if(!longest_path(placementy,edges_sety,edgesY)){
+
+        cout << "Not able to assign placement in vertical constraint graph"<<endl;
+    }
+
+}
+void print(){
+    cout << "printing horizontal_edges"<<endl;
+    for(int i=0;i<edges_setx.size();i++){
+        cout << edges_setx[i].first<< " "<< edges_setx[i].second << " " << edgesX[edges_setx[i].first][edges_setx[i].second]<<endl;
+    }
+    cout << "printing vertical_edges"<<endl;
+    for(int i=0;i<edges_sety.size();i++){
+        cout << edges_sety[i].first<< " "<< edges_sety[i].second << " " << edgesY[edges_sety[i].first][edges_sety[i].second]<<endl;
+    }
+}
 int main(){
     
     input(); // take all the necessary inputs - 
 
-    edgesX.clear();
-    edgesX.resize(2*(rooms+1),vector<double>(2*(rooms+1),POS_INF)); // 2D array for edge weights
-
-    edgesY.clear();
-    edgesY.resize(2*(rooms + 1),vector<double>(2*(rooms + 1),POS_INF));
-
     construct_constraintgraphX(); // using the inputs
+    construct_constraintgraphY();
+    print();
+    Compute_Placement();
+    printPlacements();
 
     // detect_cycles();
 
     // longest_path();
 }
+
